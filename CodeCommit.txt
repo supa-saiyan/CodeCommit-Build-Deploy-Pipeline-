@@ -1,0 +1,159 @@
+
+AWS CodeCommit 
+==============
+
+. Its a version control service hosted by aws. It is secure and highly Scalable 
+. Support standard functionality of Git version 1.7.9 and later. use static username and password in addition to standard ssh. 
+. CodeCommit can integrate with multiple AWS service. 
+
+CodeBuild 
+=========
+
+. Its a build service in cloud which compiles our source code, runs units tests, and produces artifacts that are ready to deploy. 
+. It provide prepackaged build environment for popular programming language and build tools such as Maven, Gradle etc
+
+. First create a bucket in the region where you will create codebuild both region should be same. 
+. Now create build project in codebuild we can add repo from Aws codecommit, Gitlab etc.
+. In CodeBuild We have to select the image and standard and to build the code write a buildspec.yaml file in which we mention runtime eg:
+  . IF we want to build java code then we will mention openjdk in buildspec.yaml file 
+  . If node then nodejs in buildspec.yaml. 
+  . In buildspec.yaml we can define prebuild command, postbuild command, etc. 
+. After that we have to start the build. 
+
+. And for notification we can create state, phase change notification. 
+  . Create rule in cloudwatch for codebuild notification "https://docs.aws.amazon.com/codebuild/latest/userguide/sample-build-notifications.htm" And in target use SNS 
+    Topic to send mail notification. and in configure input select input transformer 
+	
+	
+CodeDeploy
+==========
+
+. In codeDeploy we can rapidly release new features. we have to create deployment group in which we mention from where we have to take zip file and deploy on which 
+  environment. 
+. Like buildspec.yaml we have to create appspec.yaml to deploy app in CodeDeploy. And we also have to install codedeploy agent in instance. 
+
+. Create service role for codedeploy and create an iam instance profile. 
+  . Create a role of codedeploy. 
+  . Create a policy for s3 bucket to get and list for all the buckets. or we can mention particular bucket. 
+
+. First select the application in CodeDeploy and give the app name 
+. We have to create instance and attach IAM CodeDeploy Role. which is used in code deploy (Deployment group) 
+. Now Create DeploymentGroup. In Service Role we have to choose the CodeDeploy IAM Role. In Deployment settings it depends on the instances. 
+. In Deployment Triggers We have to Create trigger for sns notification. Give the trigger name and select events. After that select sns topic. 
+. We can add alarm to automatically stop deployment group. 	
+. Now Create Deployment. Select the Deployment group. Select the application revision. In revision location Go to the s3 under file and select copy path 
+  and paste it. 
+. After starting the deployment if it failed then we can check in the Deployment lifecycle events, View Events. 
+
+cat appspec.yaml
+----------------
+version: 0.0
+os: linux
+files:
+  - source: target/ccdemo.war
+    destination: /usr/share/tomcat8/webapps/
+hooks:
+  BeforeInstall:
+    - location: scripts/before_install.sh
+      timeout: 300
+      runas: root
+  AfterInstall:
+    - location: scripts/after_install.sh
+      timeout: 300
+      runas: root
+  ApplicationStart:
+    - location: scripts/start_server.sh
+      timeout: 300
+      runas: root
+  ApplicationStop:
+    - location: scripts/stop_server.sh
+      timeout: 300
+      runas: root
+	  
+
+cat buildspec.yaml 
+------------------
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      java: openjdk8    
+    commands:
+      - echo Nothing to do in the install phase...
+  pre_build:
+    commands:
+      - echo Nothing to do in the pre_build phase...
+  build:
+    commands:
+      - echo Build started on `date`
+      - mvn install
+  post_build:
+    commands:
+      - echo Build completed on `date`
+artifacts:
+  files:
+    - 'target/ccdemo.war'
+    - 'appspec.yml'
+    - 'scripts/before_install.sh'
+    - 'scripts/after_install.sh'    
+    - 'scripts/start_server.sh'
+    - 'scripts/stop_server.sh'
+
+. Above both files should be in zip file. 
+  Buildspec.yaml is used in CodeBuild. It build the .zip file and stored it in the given location 
+  appspec.yaml is used deploy our war file in the given location and use to execute provided hooks. 
+  
+. In /opt/codedeploy-agent/deployment-root/codedeploy-agent-log we can get codedeploy agent logs. 
+. In deployment-root we get the unique value under that we get deployment ID folder under that we can find war file and all other that we mention in appspec.yaml 
+
+Codepipeline
+============
+
+. It will manage the codecommit, codebuild, codedeploy. It will monitor the codecommit for any push if find then trigger code build to build the zip file and store 
+  it in the given place after that it will trigger to codedeploy to deploy the zip file on given instances. 
+
+. We can also add the manual approval while deploying in production. 
+
+. Click on the create pipeline and provide the pipeline name. select the service role or create the new service role(It will automatically create the new one.) 
+  Choose the default s3 bucket(Don't know why). 
+. Add the source from where we have to take the code. here we will select codecommit. 
+. Add the build project in the build column. 
+. Add deploy provider, region, App name, Deployment group. 
+. To add manual approval go to the CodePipeline in pipeline select Add stage. Give the name "Add stage" click on next 
+  . Now select Add action group. give the action name and select the Action provider(manual approval) select the sns topis. 
+  . After creating manual approval create prod deploy because pipeline will work as flow so manual approval is on last step after that create prod deploy so that
+    prod deploy should be the last. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
